@@ -14,6 +14,12 @@ This script MIGHT make flatpak applications unusable USE WITH CAUTION
 
 TO FULLY DISABLE:
 ```bash
+sudo fakecpu off
+```
+
+OR MANUALLY
+
+```bash
 sudo umount /proc/cpuinfo
 sudo systemctl disable --now fake-cpuinfo.service 2>/dev/null || true
 ```
