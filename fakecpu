@@ -4,22 +4,39 @@
 if [[ $1 == "off" || $1 == "disable" || $1 == "reset" ]]; then
     sudo umount /proc/cpuinfo 2>/dev/null || true
     sudo systemctl disable --now fake-cpuinfo.service 2>/dev/null || true
-    echo "Fake CPU disabled – back to real 5800X3D"
+    REAL_NAME=$(lscpu | grep -m1 "Model name:" | cut -d: -f2 | sed 's/^ *//;s/ *$//')
+    echo "CPU name reset to $REAL_NAME"
+
     exit 0
 fi
 
-[[ -z $1 ]] && { echo "Usage: sudo fakecpu <name> or disable with "'off'""; exit 1; }
+WAS_MOUNTED=0
+if mount | grep -q "/proc/cpuinfo"; then
+    sudo umount /proc/cpuinfo
+    WAS_MOUNTED=1
+fi
+
+REAL_NAME=$(lscpu | grep -m1 "Model name:" | cut -d: -f2 | sed 's/^ *//;s/ *$//')
+
+if [[ -z $1 ]]; then
+    echo "Usage: sudo fakecpu <name> or disable with \"off"\"
+    if [[ $WAS_MOUNTED == 1 ]]; then
+        sudo mount --bind /etc/fake-cpuinfo /proc/cpuinfo
+    fi
+    exit 1
+fi
+
+if [[ $WAS_MOUNTED == 1 ]]; then
+    sudo umount /proc/cpuinfo 2>/dev/null || true
+fi
 
 NEW_NAME="$*"
 
-sudo umount /proc/cpuinfo 2>/dev/null || true
-
-cat /proc/cpuinfo | sed "s/AMD Ryzen 7 5800X3D 8-Core Processor/$NEW_NAME/g" > /tmp/fake-cpuinfo
+cat /proc/cpuinfo | sed "s|$REAL_NAME|$NEW_NAME|g" > /tmp/fake-cpuinfo
 sudo mv /tmp/fake-cpuinfo /etc/fake-cpuinfo
-
 sudo mount --bind /etc/fake-cpuinfo /proc/cpuinfo
 
-sudo tee /etc/systemd/system/fake-cpuinfo.service > /dev/null <<EOF2
+sudo tee /etc/systemd/system/fake-cpuinfo.service > /dev/null <<EOF
 [Unit]
 Description=Fake CPU name: $NEW_NAME
 After=local-fs.target
@@ -31,9 +48,9 @@ RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
-EOF2
+EOF
 
 sudo systemctl enable --now fake-cpuinfo.service &>/dev/null
 
-echo "CPU name is now: $NEW_NAME"
-fastfetch | grep CPU
+echo "CPU name changed to $NEW_NAME"
+fastfetch 2>/dev/null | grep CPU || lscpu | grep "Model name"
