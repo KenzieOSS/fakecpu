@@ -11,6 +11,7 @@ sudo chmod +x /usr/local/bin/fakecpu
 
 ## NOTICE:
 This script MIGHT make flatpak applications unusable USE WITH CAUTION
+
 TO FULLY DISABLE:
 ```bash
 sudo umount /proc/cpuinfo
