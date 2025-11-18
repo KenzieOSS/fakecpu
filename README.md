@@ -30,3 +30,4 @@ just run the script again, it *should* just work
 
 ## PSA:
 I made this script just for fun, it should be completely safe as you're just doing stuff to /proc/cpuinfo
+there's also a bug where it will reset the name at times, I am too lazy to fix this
