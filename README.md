@@ -1,7 +1,7 @@
 # fakecpu
 fakecpu is a script that can be used to change the CPU's name in /proc/cpuinfo to anything.
 
-## Intallation
+## Installation
 ```bash
 git clone https://github.com/KenzieOSS/fakecpu
 cd fakecpu
