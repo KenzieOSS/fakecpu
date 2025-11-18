@@ -40,4 +40,4 @@ mount: /proc/cpuinfo: move_mount() failed: No such file or directory.
 just run the script again, it *should* just work
 
 ## PSA:
-I made this script just for fun, it should be completely safe as you're just doing stuff to /proc/cpuinfo
+I made this script just for fun, it should be *mostly* safe as you're just doing stuff to /proc/cpuinfo (besides potentially screwing with sandboxed apps)
