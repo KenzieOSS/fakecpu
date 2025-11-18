@@ -22,6 +22,9 @@ OR MANUALLY
 ```bash
 sudo umount /proc/cpuinfo
 sudo systemctl disable --now fake-cpuinfo.service 2>/dev/null || true
+sudo rm -f /etc/systemd/system/fake-cpuinfo.service
+sudo systemctl daemon-reload 2>/dev/null || true
+sudo rm -f /etc/fake-cpuinfo /etc/real-cpu-name 2>/dev/null || true
 ```
 
 ## Usage
