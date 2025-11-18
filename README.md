@@ -15,7 +15,7 @@ sudo chmod +x /usr/local/bin/fakecpu
 sudo fakecpu <name>
 sudo fakecpu AMD Ryzen 6990X3D 48-Core Processor
 ```
-Make sure you have fastfetch installed
+MAKE SURE YOU HAVE FASTFETCH INSTALLED
 
 to disable
 ```bash
