@@ -9,6 +9,13 @@ sudo cp fakecpu /usr/local/bin/
 sudo chmod +x /usr/local/bin/fakecpu 
 ```
 
+## NOTICE:
+This script MIGHT make flatpak applications unusable USE WITH CAUTION
+TO FULLY DISABLE:
+```bash
+sudo umount /proc/cpuinfo
+sudo systemctl disable --now fake-cpuinfo.service 2>/dev/null || true
+```
 
 ## Usage
 ```bash
