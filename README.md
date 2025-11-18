@@ -16,6 +16,7 @@ sudo fakecpu <name>
 sudo fakecpu AMD Ryzen 6990X3D 48-Core Processor
 ```
 Having fastfetch installed is preferrable, but not needed
+
 (if you're using brackets or or other special characters use quotes when setting the name)
 
 to disable
