@@ -25,7 +25,7 @@ else
     REAL_NAME=$(cat /proc/cpuinfo | grep -m1 "model name" | cut -d: -f2 | sed 's/^ *//;s/ *$//')
     echo "$REAL_NAME" | sudo tee /etc/real-cpu-name > /dev/null
     sudo chmod 444 /etc/real-cpu-name
-    sudo chattr+i /etc/real-cpu-name
+    sudo chattr +i /etc/real-cpu-name
 fi
 if [[ -z $1 ]]; then
     echo "Usage: sudo fakecpu <name> or disable with \"off\""
