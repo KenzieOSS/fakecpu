@@ -29,8 +29,14 @@ sudo rm -f /etc/fake-cpuinfo /etc/real-cpu-name 2>/dev/null || true
 
 ## Usage
 ```bash
-sudo fakecpu <name>
-sudo fakecpu AMD Ryzen 6990X3D 48-Core Processor
+sudo fakecpu <name> [OPTIONS]
+
+Options:
+  --cores, -c <n>      Set fake core count
+  --mhz, -m <n>        Set fake CPU MHz
+  --cache <size>       Set fake cache size
+  --persist, -p        Make changes persist across reboots
+  off                  Disable fakecpu and delete made files, you might need to run this twice for it to work
 ```
 Having fastfetch installed is preferrable, but not needed
 
