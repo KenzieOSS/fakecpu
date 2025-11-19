@@ -1,57 +1,159 @@
 #!/usr/bin/bash
-# fakecpu v1
-if [[ $1 == "off" ]]; then
-    sudo umount /proc/cpuinfo 2>/dev/null || true
-    sudo systemctl disable --now fake-cpuinfo.service 2>/dev/null || true
-    sudo rm -f /etc/systemd/system/fake-cpuinfo.service
-    sudo systemctl daemon-reload 2>/dev/null || true
+# fakecpu v2
 
-    REAL_NAME=$(cat /proc/cpuinfo | grep -m1 "model name" | cut -d: -f2 | sed 's/^\s*//;s/\s*$//')
+NEW_NAME=""
+CORES=""
+MHZ=""
+CACHE=""
+PERSIST=0
 
-    sudo rm -f /etc/fake-cpuinfo /etc/real-cpu-name 2>/dev/null || true
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        off)
+            sudo umount /proc/cpuinfo 2>/dev/null || true
+            sudo systemctl disable --now fake-cpuinfo.service 2>/dev/null || true
+            sudo rm -f /etc/systemd/system/fake-cpuinfo.service
+            sudo systemctl daemon-reload 2>/dev/null || true
+            REAL_NAME=$(cat /proc/cpuinfo | grep -m1 "model name" | cut -d: -f2 | sed 's/^\s*//;s/\s*$//')
+            sudo chattr -i /etc/real-cpu-name 2>/dev/null || true
+            sudo rm -f /etc/fake-cpuinfo /etc/real-cpu-name 2>/dev/null || true
+            echo "CPU name: $REAL_NAME"
+            fastfetch 2>/dev/null | grep CPU || lscpu | grep "Model name"
+            exit 0
+            ;;
+        --persist|-p)
+            PERSIST=1
+            shift
+            ;;
+        --cores|-c)
+            CORES="$2"
+            shift 2
+            ;;
+        --mhz|-m)
+            MHZ="$2"
+            shift 2
+            ;;
+        --cache)
+            CACHE="$2"
+            shift 2
+            ;;
+        *)
+            NEW_NAME="$NEW_NAME $1"
+            shift
+            ;;
+    esac
+done
 
-    echo "CPU name: $REAL_NAME"
-    fastfetch 2>/dev/null | grep CPU || lscpu | grep "Model name"
-    exit 0
-fi
+NEW_NAME=$(echo "$NEW_NAME" | sed 's/^ *//;s/ *$//')
+
 WAS_MOUNTED=0
 if mount | grep -q "/proc/cpuinfo"; then
     sudo umount /proc/cpuinfo
     WAS_MOUNTED=1
 fi
+
 if [ -f /etc/real-cpu-name ]; then
     REAL_NAME=$(cat /etc/real-cpu-name)
 else
     REAL_NAME=$(cat /proc/cpuinfo | grep -m1 "model name" | cut -d: -f2 | sed 's/^ *//;s/ *$//')
     echo "$REAL_NAME" | sudo tee /etc/real-cpu-name > /dev/null
     sudo chmod 444 /etc/real-cpu-name
-    sudo chattr +i /etc/real-cpu-name
+    sudo chattr +i /etc/real-cpu-name 2>/dev/null || true
 fi
-if [[ -z $1 ]]; then
-    echo "Usage: sudo fakecpu <name> or disable with \"off\""
+
+if [[ -z $NEW_NAME ]]; then
+    echo "Usage: sudo fakecpu <name> [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  --cores, -c <n>      Set fake core count"
+    echo "  --mhz, -m <n>        Set fake CPU MHz"
+    echo "  --cache <size>       Set fake cache size"
+    echo "  --persist, -p        Make changes persist across reboots"
+    echo "  off                  Disable fakecpu and delete made files, you might need to run this twice for it to work"
     if [[ $WAS_MOUNTED == 1 ]]; then
         sudo mount --bind /etc/fake-cpuinfo /proc/cpuinfo
     fi
     exit 1
 fi
+
 if [[ $WAS_MOUNTED == 1 ]]; then
     sudo umount /proc/cpuinfo 2>/dev/null || true
 fi
-NEW_NAME="$*"
-cat /proc/cpuinfo | sed "s|$REAL_NAME|$NEW_NAME|g" > /tmp/fake-cpuinfo
+
+cat /proc/cpuinfo > /tmp/fake-cpuinfo
+
+sed -i "s|$REAL_NAME|$NEW_NAME|g" /tmp/fake-cpuinfo
+
+if [[ -n $CORES ]]; then
+    sed -i "s|cpu cores.*|cpu cores\t: $CORES|g" /tmp/fake-cpuinfo
+    sed -i "s|siblings.*|siblings\t: $CORES|g" /tmp/fake-cpuinfo
+fi
+
+if [[ -n $MHZ ]]; then
+    sed -i "s|cpu MHz.*|cpu MHz\t\t: $MHZ.000|g" /tmp/fake-cpuinfo
+fi
+
+if [[ -n $CACHE ]]; then
+    sed -i "s|cache size.*|cache size\t: $CACHE|g" /tmp/fake-cpuinfo
+fi
+
+# Adjust processor block count if --cores is specified
+if [[ -n $CORES ]]; then
+    ACTUAL_CORES=$(grep -c "^processor" /tmp/fake-cpuinfo)
+
+    if [[ $CORES -gt $ACTUAL_CORES ]]; then
+        LAST_BLOCK=$(awk '/^processor.*: [0-9]+$/{start=NR} {if(start && NR>=start) line[NR]=$0} END{for(i=start;i<=NR;i++) print line[i]}' /tmp/fake-cpuinfo)
+
+        for ((i=$ACTUAL_CORES; i<$CORES; i++)); do
+            echo "" >> /tmp/fake-cpuinfo
+            echo "$LAST_BLOCK" | sed "s/processor\t: [0-9]\+/processor\t: $i/" >> /tmp/fake-cpuinfo
+        done
+
+    elif [[ $CORES -lt $ACTUAL_CORES ]]; then
+        awk -v cores="$CORES" '
+            /^processor/ {proc_num++; in_block=1}
+            in_block {
+                if (proc_num <= cores) print
+            }
+            /^$/ {in_block=0; if (proc_num < cores) print}
+        ' /tmp/fake-cpuinfo > /tmp/fake-cpuinfo.trimmed
+        mv /tmp/fake-cpuinfo.trimmed /tmp/fake-cpuinfo
+    fi
+fi
+
 sudo mv /tmp/fake-cpuinfo /etc/fake-cpuinfo
 sudo mount --bind /etc/fake-cpuinfo /proc/cpuinfo
-sudo tee /etc/systemd/system/fake-cpuinfo.service > /dev/null <<EOF
+
+if [[ $PERSIST == 1 ]]; then
+    DESC="Fake CPU: $NEW_NAME"
+    [[ -n $CORES ]] && DESC="$DESC, $CORES cores"
+    [[ -n $MHZ ]] && DESC="$DESC @ $MHZ MHz"
+    [[ -n $CACHE ]] && DESC="$DESC, $CACHE cache"
+
+    sudo tee /etc/systemd/system/fake-cpuinfo.service > /dev/null <<EOF
 [Unit]
-Description=Fake CPU name: $NEW_NAME
+Description=$DESC
 After=local-fs.target
+
 [Service]
 Type=oneshot
 ExecStart=/bin/mount --bind /etc/fake-cpuinfo /proc/cpuinfo
 RemainAfterExit=yes
+
 [Install]
 WantedBy=multi-user.target
 EOF
-sudo systemctl enable --now fake-cpuinfo.service &>/dev/null
-echo "CPU name changed to $NEW_NAME"
-fastfetch 2>/dev/null | grep CPU || lscpu | grep "Model name"
+
+    sudo systemctl enable --now fake-cpuinfo.service &>/dev/null
+    echo "Persist is on, wont reset on reboot"
+else
+    echo "Temp mode - will reset on reboot (use --persist to make permanent)"
+fi
+
+echo ""
+echo "Name: $NEW_NAME"
+[[ -n $CORES ]] && echo "Cores: $CORES"
+[[ -n $MHZ ]] && echo "MHz: $MHZ"
+[[ -n $CACHE ]] && echo "Cache: $CACHE"
+echo ""
+fastfetch 2>/dev/null | grep CPU || lscpu | grep -E "Model name|CPU\(s\)|MHz"
