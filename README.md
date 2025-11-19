@@ -1,5 +1,5 @@
 # fakecpu
-fakecpu is a script that can be used to change the CPU's name in /proc/cpuinfo to anything.
+fakecpu is a script that can be used to change the CPU's name in /proc/cpuinfo to anything. And a bit extra
 
 ## Installation
 ```bash
@@ -39,6 +39,8 @@ Options:
   off                  Disable fakecpu and delete made files, you might need to run this twice for it to work
 ```
 Having fastfetch installed is preferrable, but not needed
+
+(--cores, --mhz and --cache will not trick fastfetch)
 
 (if you're using brackets or or other special characters use quotes when setting the name)
 
